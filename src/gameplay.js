@@ -14,27 +14,28 @@ GamePlayManager = {
         game.load.image('background', 'assets/img/background.png');
         game.load.spritesheet('seahorse', 'assets/img/horse.png', 84, 156, 2);
         game.load.spritesheet('gems', 'assets/img/diamonds.png', 81, 84, 4);
+        game.load.image('pop', 'assets/img/explosion.png');
     },
     create: function()
     {
-        game.add.sprite(0, 0, 'background');  // Mostramos los objetos en pantalla
+        game.add.sprite(0, 0, 'background');                // Mostramos los objetos en pantalla
         this.seahorse = game.add.sprite(0, 0, 'seahorse');  // Guardamos el caballo en una variable para poder trabajar con él
-        this.seahorse.frame = 1;  // Aquí le estamos diciendo que de la hoja de sprites utilice el segundo frame, según lista en base cero
-        this.seahorse.x = game.width/2;  // Aquí posicionamos el elemento en el centro de la pantalla respecto el eje X (Horizontal) e Y (Vertical)
+        this.seahorse.frame = 1;                            // Aquí le estamos diciendo que de la hoja de sprites utilice el segundo frame, según lista en base cero
+        this.seahorse.x = game.width/2;                     // Aquí posicionamos el elemento en el centro de la pantalla respecto el eje X (Horizontal) e Y (Vertical)
         this.seahorse.y = game.height/2;
-        this.seahorse.anchor.setTo(0.5);  // Posicionamos el 'anchor' del elemento en el centro del caballo
-        game.input.onDown.add(this.onTap, this); //Capturar el primer click del mouse sobre la pantalla para activar el hito (flag)
-        this.gems = []; //Creamos las gemas y las guardamos en un array
-        for (var i = 0; i < AMOUNT_GEMS; i++)
+        this.seahorse.anchor.setTo(0.5);                    // Posicionamos el 'anchor' del elemento en el centro del caballo
+        game.input.onDown.add(this.onTap, this);            // Capturar el primer click del mouse sobre la pantalla para activar el hito (flag)
+        this.gems = [];                                     // Creamos las gemas y las guardamos en un array
+        for (i = 0; i < AMOUNT_GEMS; i++)
         {
             var gem = game.add.sprite(100, 100, 'gems');
             gem.frame = game.rnd.integerInRange(0, 3);  // Para darle una imagen al azar entre el frame 1 y el 4 del que está constituido la hoja de sprites
-            gem.scale.setTo(0.30 + game.rnd.frac());  // Aleatorizar el tamaño de las gemas
-            gem.anchor.setTo(0.5);  // Situar el ancla en el centro de la gema
+            gem.scale.setTo(0.30 + game.rnd.frac());    // Aleatorizar el tamaño de las gemas
+            gem.anchor.setTo(0.5);                      // Situar el ancla en el centro de la gema
             gem.x = game.rnd.integerInRange(50, 1050);  // Valor al azar para las coordenadas X e Y
             gem.y = game.rnd.integerInRange(50, 600);
-            this.gems[i] = gem;  // Guardamos en nuestro array el elemento gema nuevo
-            var rectCurrentGem = this.getBoundsGem(gem);  // Guardamos en variable el rectangulo de la gema creada
+            this.gems[i] = gem;                                   // Guardamos en nuestro array el elemento gema nuevo
+            var rectCurrentGem = this.getBoundsGem(gem);          // Guardamos en variable el rectangulo de la gema creada
             var rectSeahorse = this.getBoundsGem(this.seahorse);  // Guardamos en variable el rectangulo del caballo
             // Mientras sí exista una superposcion entre gemas nuevas y existentes cambiamos las coordenadas de las primeras
             // para que no coincidas en el espacio con las segundas. También preguntamos si colisionan las gemas con el caballo
@@ -48,6 +49,37 @@ GamePlayManager = {
                 rectCurrentGem = this.getBoundsGem(gem);
             }
         }
+        // Para manejar mas de una explosión a la vez necesitariamos multiples sprites, para aligerar recursos
+        // utilizamos los grupos
+        this.popGroup = game.add.group();
+        for (var i = 0; i < 10; i++) // Generamos 10 explosiones con la iteración
+        {
+            this.pop = this.popGroup.create(100, 100, 'pop'); // Creamos la explosion que sucede a la burbuja
+            this.pop.tweenScale = game.add.tween(this.pop.scale).to({
+                x: [0.4, 0.8, 0.4],
+                y: [0.4, 0.8, 0.4]
+            }, 600, Phaser.Easing.Exponential.Out, false, 0, 0, false);
+            this.pop.tweenAlpha = game.add.tween(this.pop).to({
+                alpha: [1, 0.6, 0]
+            }, 600, Phaser.Easing.Exponential.Out, false, 0, 0, false);
+            this.pop.anchor.setTo(0.5);
+            this.pop.visible = false;
+            this.pop.kill();
+        }
+        // Añadimos el marcador de puntuación
+        this.currentScore = 0;
+        var style = {
+            font: 'bold 30pt Arial',
+            fill: '#fff',
+            align: 'center'
+        };
+        this.txtScore = game.add.text(game.width/2, 40, '0', style);
+        this.txtScore.anchor.setTo(0.5);
+    },
+    increaseScore: function()
+    {
+        this.currentScore += 100;
+        this.txtScore.text = this.currentScore;
     },
     onTap: function()
     {
@@ -81,8 +113,8 @@ GamePlayManager = {
     {
         for(var i = 0; i < index; i++)
         {
-            var rect1 = this.getBoundsGem(this.gems[i]);  // Almacenamos la posicion del rectangulo existente en pantalla
-            if(this.isRectanglesOverlapping(rect1, rect2))  // Ahora comprobamos si se sobrepone la gema nueva con la antigua
+            var rect1 = this.getBoundsGem(this.gems[i]);   // Almacenamos la posicion del rectangulo existente en pantalla
+            if(this.isRectanglesOverlapping(rect1, rect2)) // Ahora comprobamos si se sobrepone la gema nueva con la antigua
             {
                 return true;
             }
@@ -95,17 +127,17 @@ GamePlayManager = {
         // Tampoco permitimos que la orientación de caballo se invierta, para ello usamos el metodo absoluto para
         // impedir números negativos en el ancho
         var x0 = this.seahorse.x - Math.abs(this.seahorse.width/2);
-        var width = Math.abs(this.seahorse.width)/2;  // Para mejorar la precision de la colision dividimos entre 2, la mitad
+        var width = Math.abs(this.seahorse.width)/2;        // Para mejorar la precision de la colision dividimos entre 2, la mitad
         var y0 = this.seahorse.y - this.seahorse.height/2;  // Obtenemos la coordenada Y menos la mitad de su alto (top)
         var height = this.seahorse.height;
-        return new Phaser.Rectangle(x0, y0, width, height);  // Devolvemos el rectangulo
+        return new Phaser.Rectangle(x0, y0, width, height); // Devolvemos el rectangulo
     },
     render: function()
     {
-        game.debug.spriteBounds(this.horse);  // Funcion para debuggear
+        //game.debug.spriteBounds(this.horse);  // Funcion para debuggear
         for(var i = 0; i < AMOUNT_GEMS; i++)
         {
-            game.debug.spriteBounds(this.gems[i]);
+            //game.debug.spriteBounds(this.gems[i]);
         }
     },
     update: function()
@@ -132,11 +164,25 @@ GamePlayManager = {
             this.seahorse.y += distY * 0.02;
             for(var i = 0; i < AMOUNT_GEMS; i++)  // Verificamos si nuestro caballo colisiona con alguno de nuestros diamantes
             {
-                var rectSeahorse = this.getBoundsHorse();  //Recuperamos el rectangulo del caballo y de la gema y ver sí están colisionando
+                var rectSeahorse = this.getBoundsHorse();  // Recuperamos el rectangulo del caballo y de la gema y ver sí están colisionando
                 var rectGem = this.getBoundsGem(this.gems[i]);
-                if(this.isRectanglesOverlapping(rectSeahorse, rectGem))  // Verificamos si los 2 rectangulos anteriores colisionan
+                //  Verificamos si los 2 rectangulos anteriores colisionan. Comprobamos que colisionen solo con las gemas visibles
+                if(this.gems[i].visible && this.isRectanglesOverlapping(rectSeahorse, rectGem))
                 {
-                    console.log('COLISION');
+                    this.increaseScore();          // Llamamos al marcador
+                    this.gems[i].visible = false;  // Volver invisble la gema al colisionar con el caballo
+                    var pop = this.popGroup.getFirstDead();
+                    if(pop != null)  // Comprobamos que no sea nulo
+                    {
+                        // Ubicamos las coordenadas de la gema que acabamos de invisibilizar para situar la explosion encima
+                        pop.reset(this.gems[i].x, this.gems[i].y); // Necesario para activar el elemento después de eliminarlo
+                        pop.tweenScale.start();
+                        pop.tweenAlpha.start();
+                        pop.tweenAlpha.onComplete.add(function(currentTarget)
+                        {
+                            currentTarget.kill();
+                        }, this);
+                    }
                 }
             }
         }
