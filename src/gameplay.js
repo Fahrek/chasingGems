@@ -7,6 +7,8 @@ GamePlayManager = {
         game.scale.pageAlignVertically   = true;
         game.scale.pageAlignHorizontally = true;
         this.flagFirstMouseDown = false;
+        this.amountGemCaught = 0; // Acumulador de gemas
+        this.flagEndGame = false;
     },
     preload: function()
     {
@@ -66,7 +68,7 @@ GamePlayManager = {
             this.pop.visible = false;
             this.pop.kill();
         }
-        // Añadimos el marcador de puntuación
+        // Añadimos el marcador de puntuación y el contador de tiempo
         this.currentScore = 0;
         var style = {
             font: 'bold 30pt Arial',
@@ -75,11 +77,49 @@ GamePlayManager = {
         };
         this.txtScore = game.add.text(game.width/2, 40, '0', style);
         this.txtScore.anchor.setTo(0.5);
+        this.totalTime = 30;
+        this.txtTimer = game.add.text(1000, 40, this.totalTime + '', style);
+        this.txtTimer.anchor.setTo(0.5);
+        this.timerGameOver = game.time.events.loop(Phaser.Timer.SECOND, function(){
+            if(this.flagFirstMouseDown) // Comprobamos que estamos jugando al hacer el primer click en el raton
+            {
+                this.totalTime--; // Restamos 1
+                this.txtTimer.text = this.totalTime + ''; // Convertimos el integer en string con ''
+                if(this.totalTime <= 0)
+                {
+                    game.time.events.remove(this.timerGameOver);
+                    this.flagEndGame = true;
+                    this.showFinalMsg('GAME OVER');
+                }
+            }
+        }, this)
     },
     increaseScore: function()
     {
         this.currentScore += 100;
         this.txtScore.text = this.currentScore;
+        this.amountGemCaught += 1;
+        if(this.amountGemCaught >= AMOUNT_GEMS)
+        {
+            game.time.events.remove(this.timerGameOver);
+            this.flagEndGame = true;
+            this.showFinalMsg('CONGRATULATIONS');
+        }
+    },
+    showFinalMsg: function(msg)
+    {
+        var style = {
+            font: 'bold 30pt Arial',
+            fill: '#fff',
+            align: 'center'
+        };
+        var bgAlpha = game.add.bitmapData(game.width, game.height);
+        bgAlpha.ctx.fillStyle = '#000';
+        bgAlpha.ctx.fillRect(0, 0, game.width, game.height);
+        var bg = game.add.sprite(0, 0, bgAlpha);
+        bg.alpha = 0.5;
+        this.textFieldFinalMsg = game.add.text(game.width/2, game.height/2, msg, style);
+        this.textFieldFinalMsg.anchor.setTo(0.5);
     },
     onTap: function()
     {
@@ -142,7 +182,7 @@ GamePlayManager = {
     },
     update: function()
     {
-        if(this.flagFirstMouseDown)
+        if(this.flagFirstMouseDown && !this.flagEndGame)
         {
             // Trackeamos y guardamos en una variable las coordenadas X e Y de donde se encuentra nuestro mouse en cada
             // momento (en tiempo real)
@@ -172,7 +212,7 @@ GamePlayManager = {
                     this.increaseScore();          // Llamamos al marcador
                     this.gems[i].visible = false;  // Volver invisble la gema al colisionar con el caballo
                     var pop = this.popGroup.getFirstDead();
-                    if(pop != null)  // Comprobamos que no sea nulo
+                    if(pop != null)  // Comprobamos que la explosion no sea un valor nulo
                     {
                         // Ubicamos las coordenadas de la gema que acabamos de invisibilizar para situar la explosion encima
                         pop.reset(this.gems[i].x, this.gems[i].y); // Necesario para activar el elemento después de eliminarlo
