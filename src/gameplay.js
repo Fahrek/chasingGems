@@ -1,4 +1,5 @@
-var AMOUNT_GEMS = 30;  // Variable Global, número de gemas en pantalla
+var AMOUNT_GEMS    = 30;  // Variable Global, número de gemas en pantalla
+var AMOUNT_BUBBLES = 50;  // Variable Global, número de gemas en pantalla
 GamePlayManager = {
     init: function()
     {
@@ -9,6 +10,7 @@ GamePlayManager = {
         this.flagFirstMouseDown = false;
         this.amountGemCaught = 0; // Acumulador de gemas
         this.flagEndGame = false;
+        this.countSmile = -1;
     },
     preload: function()
     {
@@ -17,28 +19,41 @@ GamePlayManager = {
         game.load.spritesheet('seahorse', 'assets/img/horse.png', 84, 156, 2);
         game.load.spritesheet('gems', 'assets/img/diamonds.png', 81, 84, 4);
         game.load.image('pop', 'assets/img/explosion.png');
+        game.load.image('bubble1', 'assets/img/booble1.png');
+        game.load.image('bubble2', 'assets/img/booble2.png');
     },
     create: function()
     {
-        game.add.sprite(0, 0, 'background');                // Mostramos los objetos en pantalla
-        this.seahorse = game.add.sprite(0, 0, 'seahorse');  // Guardamos el caballo en una variable para poder trabajar con él
-        this.seahorse.frame = 1;                            // Aquí le estamos diciendo que de la hoja de sprites utilice el segundo frame, según lista en base cero
-        this.seahorse.x = game.width/2;                     // Aquí posicionamos el elemento en el centro de la pantalla respecto el eje X (Horizontal) e Y (Vertical)
-        this.seahorse.y = game.height/2;
-        this.seahorse.anchor.setTo(0.5);                    // Posicionamos el 'anchor' del elemento en el centro del caballo
-        game.input.onDown.add(this.onTap, this);            // Capturar el primer click del mouse sobre la pantalla para activar el hito (flag)
-        this.gems = [];                                     // Creamos las gemas y las guardamos en un array
+        game.add.sprite(0, 0, 'background');  // Mostramos los objetos en pantalla
+        this.bubbleArray = [];
+        for(i = 0; i <= AMOUNT_BUBBLES; i++)
+        {
+            var xBubble  = game.rnd.integerInRange(1, 1140);   // Situamos las burbujas en el eje x (verticalmente)
+            var yBubble  = game.rnd.integerInRange(600, 950);  // Situamos las burbujas en el eje y (horizontalmente)
+            var bubble   = game.add.sprite(xBubble, yBubble, 'bubble' + game.rnd.integerInRange(1, 2)); // Aleatorización del tipo de burbujas que se escoje entre 1 y 2
+            bubble.vel   = 0.2 + game.rnd.frac() * 2;          // La fracción nos devuelve un número aleatorio entre 0 y 2 para la velocidad minima de movimiento de las burbujas
+            bubble.alpha = 0.9;
+            bubble.scale.setTo(0.2 + game.rnd.frac());
+            this.bubbleArray[i] = bubble;
+        }
+        this.seahorse       = game.add.sprite(0, 0, 'seahorse');  // Guardamos el caballo en una variable para poder trabajar con él
+        this.seahorse.frame = 0;                        // Aquí le estamos diciendo que de la hoja de sprites utilice el segundo frame, según lista en base cero
+        this.seahorse.x     = game.width/2;             // Aquí posicionamos el elemento en el centro de la pantalla respecto el eje X (Horizontalmente)
+        this.seahorse.y     = game.height/2;            // Aquí posicionamos el elemento en el centro de la pantalla respecto el eje Y (Verticalmente)
+        this.seahorse.anchor.setTo(0.5);                // Posicionamos el 'anchor' del elemento en el centro del caballo
+        game.input.onDown.add(this.onTap, this);        // Capturar el primer click del mouse sobre la pantalla para activar el hito (flag)
+        this.gems = [];                                 // Creamos las gemas y las guardamos en un array
         for (i = 0; i < AMOUNT_GEMS; i++)
         {
-            var gem = game.add.sprite(100, 100, 'gems');
+            var gem   = game.add.sprite(100, 100, 'gems');
             gem.frame = game.rnd.integerInRange(0, 3);  // Para darle una imagen al azar entre el frame 1 y el 4 del que está constituido la hoja de sprites
             gem.scale.setTo(0.30 + game.rnd.frac());    // Aleatorizar el tamaño de las gemas
             gem.anchor.setTo(0.5);                      // Situar el ancla en el centro de la gema
             gem.x = game.rnd.integerInRange(50, 1050);  // Valor al azar para las coordenadas X e Y
             gem.y = game.rnd.integerInRange(50, 600);
-            this.gems[i] = gem;                                   // Guardamos en nuestro array el elemento gema nuevo
-            var rectCurrentGem = this.getBoundsGem(gem);          // Guardamos en variable el rectangulo de la gema creada
-            var rectSeahorse = this.getBoundsGem(this.seahorse);  // Guardamos en variable el rectangulo del caballo
+            this.gems[i]       = gem;                                   // Guardamos en nuestro array el elemento gema nuevo
+            var rectCurrentGem = this.getBoundsGem(gem);                // Guardamos en variable el rectangulo de la gema creada
+            var rectSeahorse   = this.getBoundsGem(this.seahorse);      // Guardamos en variable el rectangulo del caballo
             // Mientras sí exista una superposcion entre gemas nuevas y existentes cambiamos las coordenadas de las primeras
             // para que no coincidas en el espacio con las segundas. También preguntamos si colisionan las gemas con el caballo
             while(this.isOverlappingNewGem(i, rectCurrentGem)
@@ -78,7 +93,7 @@ GamePlayManager = {
         this.txtScore = game.add.text(game.width/2, 40, '0', style);
         this.txtScore.anchor.setTo(0.5);
         this.totalTime = 30;
-        this.txtTimer = game.add.text(1000, 40, this.totalTime + '', style);
+        this.txtTimer  = game.add.text(1000, 40, this.totalTime + '', style);
         this.txtTimer.anchor.setTo(0.5);
         this.timerGameOver = game.time.events.loop(Phaser.Timer.SECOND, function(){
             if(this.flagFirstMouseDown) // Comprobamos que estamos jugando al hacer el primer click en el raton
@@ -96,8 +111,10 @@ GamePlayManager = {
     },
     increaseScore: function()
     {
-        this.currentScore += 100;
-        this.txtScore.text = this.currentScore;
+        this.countSmile       = 0;
+        this.seahorse.frame   = 1;
+        this.currentScore    += 100;
+        this.txtScore.text    = this.currentScore;
         this.amountGemCaught += 1;
         if(this.amountGemCaught >= AMOUNT_GEMS)
         {
@@ -109,8 +126,8 @@ GamePlayManager = {
     showFinalMsg: function(msg)
     {
         var style = {
-            font: 'bold 30pt Arial',
-            fill: '#fff',
+            font : 'bold 30pt Arial',
+            fill : '#fff',
             align: 'center'
         };
         var bgAlpha = game.add.bitmapData(game.width, game.height);
@@ -166,9 +183,9 @@ GamePlayManager = {
         // Obtenemos la coordenada X menos la mitad de su ancho (left)
         // Tampoco permitimos que la orientación de caballo se invierta, para ello usamos el metodo absoluto para
         // impedir números negativos en el ancho
-        var x0 = this.seahorse.x - Math.abs(this.seahorse.width/2);
-        var width = Math.abs(this.seahorse.width)/2;        // Para mejorar la precision de la colision dividimos entre 2, la mitad
-        var y0 = this.seahorse.y - this.seahorse.height/2;  // Obtenemos la coordenada Y menos la mitad de su alto (top)
+        var x0     = this.seahorse.x - Math.abs(this.seahorse.width/2);
+        var width  = Math.abs(this.seahorse.width)/2;        // Para mejorar la precision de la colision dividimos entre 2, la mitad
+        var y0     = this.seahorse.y - this.seahorse.height/2;  // Obtenemos la coordenada Y menos la mitad de su alto (top)
         var height = this.seahorse.height;
         return new Phaser.Rectangle(x0, y0, width, height); // Devolvemos el rectangulo
     },
@@ -184,6 +201,26 @@ GamePlayManager = {
     {
         if(this.flagFirstMouseDown && !this.flagEndGame)
         {
+            // Iteración de las burbujas
+            for(i = 0; i < AMOUNT_BUBBLES; i++)
+            {
+                var bubble = this.bubbleArray[i];
+                bubble.y  -= bubble.vel;
+                if(bubble.y < -50)
+                {
+                    bubble.y = 700;
+                    bubble.x = game.rnd.integerInRange(1,1140);
+                }
+            }
+            if(this.countSmile >= 0)
+            {
+                this.countSmile++;
+                if(this.countSmile > 50)
+                {
+                    this.countSmile = -1;
+                    this.seahorse.frame = 0;
+                }
+            }
             // Trackeamos y guardamos en una variable las coordenadas X e Y de donde se encuentra nuestro mouse en cada
             // momento (en tiempo real)
             var pointerX = game.input.x;
